@@ -9,8 +9,11 @@ import Dashboard from './pages/Dashboard';
 import Sites from './pages/Sites';
 import Designations from './pages/Designations';
 import Banks from './pages/Banks';
-import SecurityStaff from './pages/SecurityStaff'; // අලුත් පිටුව Import කළා
+import SecurityStaff from './pages/SecurityStaff';
 import CleaningStaff from './pages/CleaningStaff';
+import OfficeStaff from './pages/OfficeStaff'; // <--- අලුත් පිටුව Import කළා
+import UserManagement from './pages/UserManagement';
+import logo from './assets/logo.png'; // <--- මේ පේළිය උඩින්ම එකතු කරන්න
 
 const { ipcRenderer } = window.require('electron');
 
@@ -50,7 +53,10 @@ const LoginPage = () => {
 
       <div className={`w-full max-w-md p-8 rounded-2xl shadow-2xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-blue-900/20' : 'bg-white border-white shadow-xl'}`}>
         <div className="text-center mb-8">
-           <div className={`w-16 h-16 mx-auto rounded-xl flex items-center justify-center mb-4 text-3xl font-bold shadow-lg ${darkMode ? 'bg-blue-600 text-white' : 'bg-blue-900 text-white'}`}>R</div>
+           {/* Logo Image */}
+<div className="flex justify-center mb-6">
+  <img src={logo} alt="REDA Logo" className="w-24 h-24 object-contain drop-shadow-xl" />
+</div>
            <h1 className={`text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>REDA Payroll</h1>
            <p className={`mt-2 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Secure Access Portal</p>
         </div>
@@ -88,12 +94,17 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        
+        {/* Master Data */}
         <Route path="/sites" element={<Sites />} />
         <Route path="/designations" element={<Designations />} />
         <Route path="/banks" element={<Banks />} />
-        {/* අලුත් Security Route එක */}
+        
+        {/* Modules */}
         <Route path="/security" element={<SecurityStaff />} />
         <Route path="/cleaning" element={<CleaningStaff />} />
+        <Route path="/office-staff" element={<OfficeStaff />} /> {/* <--- අලුත් Route එක */}
+        <Route path="/users" element={<UserManagement />} />
       </Routes>
     </Router>
   );

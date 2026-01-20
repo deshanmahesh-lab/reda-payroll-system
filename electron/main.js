@@ -3,6 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 
+import { setupOfficeHandlers } from './officeHandler.js'; // <--- මේක අලුතින් එකතු කරන්න
+import { setupUserHandlers } from './userHandler.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -12,6 +15,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    // 👇 පහත පේළිය අනිවාර්යයෙන්ම තිබිය යුතුයි
+    icon: path.join(__dirname, '../public/icon.ico'), 
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -39,12 +44,41 @@ app.on('activate', function () {
 // ================= API HANDLERS =================
 
 // --- LOGIN ---
+// --- LOGIN HANDLER (Updated to use 'system_users') ---
 ipcMain.handle('login-request', async (event, { username, password }) => {
   try {
-    const [rows] = await db.execute('SELECT * FROM users WHERE username = ? AND status = ?', [username, 'ACTIVE']);
-    if (rows.length === 0) return { success: false, message: 'Invalid credentials.' };
-    return { success: true, user: { id: rows[0].id, name: rows[0].full_name, role: rows[0].role } };
-  } catch (error) { return { success: false, message: 'Database error.' }; }
+    // අපි දැන් බලන්නේ 'system_users' ටේබල් එකෙන්
+    const [rows] = await db.execute(
+      'SELECT * FROM system_users WHERE username = ? AND status = ?', 
+      [username, 'ACTIVE']
+    );
+
+    if (rows.length === 0) {
+      return { success: false, message: 'Invalid credentials or Inactive account.' };
+    }
+
+    const user = rows[0];
+
+    // සරල Password Check එකක් (Encryption නැතිව)
+    // සැබෑ ලෝකයේදී මෙතැන bcrypt වැනි එකක් තිබිය යුතුයි
+    if (user.password !== password) {
+      return { success: false, message: 'Invalid password.' };
+    }
+
+    // Login සාර්ථකයි!
+    return { 
+      success: true, 
+      user: { 
+        id: user.id, 
+        name: user.full_name, 
+        role: user.role 
+      } 
+    };
+
+  } catch (error) { 
+    console.error(error);
+    return { success: false, message: 'Database error.' }; 
+  }
 });
 
 // --- MASTER DATA ---
@@ -744,3 +778,40 @@ ipcMain.handle('calculate-cleaning-salaries', async (event, { site_id, month_yea
     return { success: false, message: 'Calculation failed' };
   }
 });
+
+// --- DASHBOARD STATS (UPDATED) ---
+ipcMain.handle('get-dashboard-stats', async () => {
+  try {
+    // 1. Counts
+    const [sec] = await db.execute("SELECT COUNT(*) as count FROM employees WHERE employee_type='SECURITY' AND status='ACTIVE'");
+    const [cln] = await db.execute("SELECT COUNT(*) as count FROM employees WHERE employee_type='CLEANING' AND status='ACTIVE'");
+    const [off] = await db.execute("SELECT COUNT(*) as count FROM office_employees WHERE status='ACTIVE'");
+    const [sit] = await db.execute("SELECT COUNT(*) as count FROM master_sites WHERE status='ACTIVE'");
+
+    // 2. Financials (Total Basic Salary Liability)
+    // Note: Security/Cleaning Basic is split (basic_1 + basic_2)
+    const [secPay] = await db.execute("SELECT SUM(basic_salary_1 + basic_salary_2) as total FROM employees WHERE employee_type='SECURITY' AND status='ACTIVE'");
+    const [clnPay] = await db.execute("SELECT SUM(basic_salary_1 + basic_salary_2) as total FROM employees WHERE employee_type='CLEANING' AND status='ACTIVE'");
+    const [offPay] = await db.execute("SELECT SUM(basic_salary) as total FROM office_employees WHERE status='ACTIVE'");
+
+    const totalBasic = (Number(secPay[0].total) || 0) + (Number(clnPay[0].total) || 0) + (Number(offPay[0].total) || 0);
+
+    return {
+      success: true,
+      security: sec[0].count,
+      cleaning: cln[0].count,
+      office: off[0].count,
+      sites: sit[0].count,
+      totalBasic: totalBasic // This is new!
+    };
+  } catch (e) {
+    console.error(e);
+    return { success: false, security: 0, cleaning: 0, office: 0, sites: 0, totalBasic: 0 };
+  }
+});
+// ... (Cleaning staff codes are here) ...
+
+// --- OFFICE STAFF MODULE ---
+setupOfficeHandlers(); // <--- මේකෙන් අලුත් ෆයිල් එකේ Logic ටික වැඩ කරන්න පටන් ගන්නවා.
+// --- USER MANAGEMENT MODULE ---
+setupUserHandlers();
