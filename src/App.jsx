@@ -11,9 +11,9 @@ import Designations from './pages/Designations';
 import Banks from './pages/Banks';
 import SecurityStaff from './pages/SecurityStaff';
 import CleaningStaff from './pages/CleaningStaff';
-import OfficeStaff from './pages/OfficeStaff'; // <--- අලුත් පිටුව Import කළා
+import OfficeStaff from './pages/OfficeStaff';
 import UserManagement from './pages/UserManagement';
-import logo from './assets/logo.png'; // <--- මේ පේළිය උඩින්ම එකතු කරන්න
+import logo from './assets/logo.png';
 
 const { ipcRenderer } = window.require('electron');
 
@@ -54,9 +54,9 @@ const LoginPage = () => {
       <div className={`w-full max-w-md p-8 rounded-2xl shadow-2xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-blue-900/20' : 'bg-white border-white shadow-xl'}`}>
         <div className="text-center mb-8">
            {/* Logo Image */}
-<div className="flex justify-center mb-6">
-  <img src={logo} alt="REDA Logo" className="w-24 h-24 object-contain drop-shadow-xl" />
-</div>
+            <div className="flex justify-center mb-6">
+              <img src={logo} alt="REDA Logo" className="w-24 h-24 object-contain drop-shadow-xl" />
+            </div>
            <h1 className={`text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>REDA Payroll</h1>
            <p className={`mt-2 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Secure Access Portal</p>
         </div>
@@ -103,7 +103,7 @@ function App() {
         {/* Modules */}
         <Route path="/security" element={<SecurityStaff />} />
         <Route path="/cleaning" element={<CleaningStaff />} />
-        <Route path="/office-staff" element={<OfficeStaff />} /> {/* <--- අලුත් Route එක */}
+        <Route path="/office-staff" element={<OfficeStaff />} />
         <Route path="/users" element={<UserManagement />} />
       </Routes>
     </Router>

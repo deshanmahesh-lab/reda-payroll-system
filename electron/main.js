@@ -3,7 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
 
-import { setupOfficeHandlers } from './officeHandler.js'; // <--- මේක අලුතින් එකතු කරන්න
+// 👇 අලුත් Handlers ගෙන්වා ගැනීම
+import { setupOfficeHandlers } from './officeHandler.js';
 import { setupUserHandlers } from './userHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,26 +13,38 @@ const __dirname = path.dirname(__filename);
 let mainWindow;
 
 function createWindow() {
+  const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    // 👇 පහත පේළිය අනිවාර්යයෙන්ම තිබිය යුතුයි
-    icon: path.join(__dirname, '../public/icon.ico'), 
+    icon: path.join(__dirname, '../public/icon.ico'), // Icon Setup
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
     },
   });
 
-  const startUrl = 'http://localhost:5173';
-  mainWindow.loadURL(startUrl);
+  // 👇 වැදගත්ම වෙනස්කම: Production සහ Dev mode හඳුනා ගැනීම
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+  } else {
+    // Build කළාම වැඩ කරන්න මේක ඕන
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
 
   mainWindow.on('closed', function () {
     mainWindow = null;
   });
 }
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  // 👇 Handlers ක්‍රියාත්මක කිරීම (db සහ ipcMain යැවීම අනිවාර්යයි)
+  setupOfficeHandlers(ipcMain, db);
+  setupUserHandlers(ipcMain, db);
+  
+  createWindow();
+});
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
@@ -43,11 +56,9 @@ app.on('activate', function () {
 
 // ================= API HANDLERS =================
 
-// --- LOGIN ---
-// --- LOGIN HANDLER (Updated to use 'system_users') ---
+// --- LOGIN HANDLER ---
 ipcMain.handle('login-request', async (event, { username, password }) => {
   try {
-    // අපි දැන් බලන්නේ 'system_users' ටේබල් එකෙන්
     const [rows] = await db.execute(
       'SELECT * FROM system_users WHERE username = ? AND status = ?', 
       [username, 'ACTIVE']
@@ -59,13 +70,11 @@ ipcMain.handle('login-request', async (event, { username, password }) => {
 
     const user = rows[0];
 
-    // සරල Password Check එකක් (Encryption නැතිව)
-    // සැබෑ ලෝකයේදී මෙතැන bcrypt වැනි එකක් තිබිය යුතුයි
+    // සරල Password Check (Production සඳහා Hash භාවිතා කිරීම වඩාත් සුදුසුයි)
     if (user.password !== password) {
       return { success: false, message: 'Invalid password.' };
     }
 
-    // Login සාර්ථකයි!
     return { 
       success: true, 
       user: { 
@@ -81,7 +90,7 @@ ipcMain.handle('login-request', async (event, { username, password }) => {
   }
 });
 
-// --- MASTER DATA ---
+// --- MASTER DATA HANDLERS ---
 ipcMain.handle('get-sites', async (event, filter) => {
   try {
     const status = filter?.status;
@@ -94,6 +103,7 @@ ipcMain.handle('get-sites', async (event, filter) => {
     return { success: true, data: rows };
   } catch (e) { return { success: false }; }
 });
+
 ipcMain.handle('add-site', async (event, data) => {
   try {
     await db.execute(
@@ -103,7 +113,9 @@ ipcMain.handle('add-site', async (event, data) => {
     return { success: true, message: 'Site added!' };
   } catch (e) { return { success: false }; }
 });
+
 ipcMain.handle('update-site', async (event, data) => { try { await db.execute('UPDATE master_sites SET site_name=?, location=?, contact_number=? WHERE id=?', [data.site_name, data.location, data.contact_number, data.id]); return { success: true, message: 'Site updated!' }; } catch (e) { return { success: false }; } });
+
 ipcMain.handle('delete-site', async (event, id) => {
   try {
     await db.execute("UPDATE master_sites SET status='INACTIVE' WHERE id=?", [id]);
@@ -428,7 +440,7 @@ ipcMain.handle('save-monthly-shifts', async (event, rows) => {
   }
 });
 
-// --- SALARY CALCULATION (SECURITY - FINAL FLEXIBLE LOGIC) ---
+// --- SALARY CALCULATION (SECURITY) ---
 
 ipcMain.handle('calculate-security-salaries', async (event, { site_id, month_year }) => {
   try {
@@ -483,7 +495,7 @@ ipcMain.handle('calculate-security-salaries', async (event, { site_id, month_yea
       const isOIC = designationTitle.includes('OIC');
       const isVO = designationTitle.includes('VO');
 
-      // --- TARGET RATE LOGIC (FLEXIBLE) ---
+      // --- TARGET RATE LOGIC ---
       const defaultRate = (isOIC || isVO) ? 1250 : 1050;
       const targetRate = dbDailyRate > 0 ? dbDailyRate : defaultRate;
 
@@ -590,7 +602,7 @@ ipcMain.handle('calculate-security-salaries', async (event, { site_id, month_yea
         ot,
         incentive,
         telephone_allow: telephone,
-        other_allowance: otherAllowance, // Fixed mapping
+        other_allowance: otherAllowance, 
         intensive,
         total_gross_salary: totalGrossSalary, // Final Gross
 
@@ -621,7 +633,7 @@ ipcMain.handle('calculate-security-salaries', async (event, { site_id, month_yea
   }
 });
 
-// --- SALARY CALCULATION (CLEANING - FINAL CORRECTED LOGIC) ---
+// --- SALARY CALCULATION (CLEANING) ---
 
 ipcMain.handle('calculate-cleaning-salaries', async (event, { site_id, month_year }) => {
   try {
@@ -779,7 +791,7 @@ ipcMain.handle('calculate-cleaning-salaries', async (event, { site_id, month_yea
   }
 });
 
-// --- DASHBOARD STATS (UPDATED) ---
+// --- DASHBOARD STATS ---
 ipcMain.handle('get-dashboard-stats', async () => {
   try {
     // 1. Counts
@@ -789,7 +801,6 @@ ipcMain.handle('get-dashboard-stats', async () => {
     const [sit] = await db.execute("SELECT COUNT(*) as count FROM master_sites WHERE status='ACTIVE'");
 
     // 2. Financials (Total Basic Salary Liability)
-    // Note: Security/Cleaning Basic is split (basic_1 + basic_2)
     const [secPay] = await db.execute("SELECT SUM(basic_salary_1 + basic_salary_2) as total FROM employees WHERE employee_type='SECURITY' AND status='ACTIVE'");
     const [clnPay] = await db.execute("SELECT SUM(basic_salary_1 + basic_salary_2) as total FROM employees WHERE employee_type='CLEANING' AND status='ACTIVE'");
     const [offPay] = await db.execute("SELECT SUM(basic_salary) as total FROM office_employees WHERE status='ACTIVE'");
@@ -802,16 +813,10 @@ ipcMain.handle('get-dashboard-stats', async () => {
       cleaning: cln[0].count,
       office: off[0].count,
       sites: sit[0].count,
-      totalBasic: totalBasic // This is new!
+      totalBasic: totalBasic
     };
   } catch (e) {
     console.error(e);
     return { success: false, security: 0, cleaning: 0, office: 0, sites: 0, totalBasic: 0 };
   }
 });
-// ... (Cleaning staff codes are here) ...
-
-// --- OFFICE STAFF MODULE ---
-setupOfficeHandlers(); // <--- මේකෙන් අලුත් ෆයිල් එකේ Logic ටික වැඩ කරන්න පටන් ගන්නවා.
-// --- USER MANAGEMENT MODULE ---
-setupUserHandlers();

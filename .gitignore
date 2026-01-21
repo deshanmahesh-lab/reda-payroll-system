@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Electron Builder Output (මේක අලුතින් එකතු කළා)
+release
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
